@@ -10,6 +10,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
+#include <cairo/cairo.h>
+#include <cairo/cairo-xlib.h>
 
 #include "sowm.h"
 

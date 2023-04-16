@@ -6,8 +6,8 @@
 #define TH  25
 #define TC  255 + (255<<8) + (255<<16)
 
-const char* menu[]    = {"dmenu_run",      0};
-const char* term[]    = {"st",             0};
+const char* menu[]    = {"rofi", "-show", "run", 0};
+const char* term[]    = {"alacritty",      0};
 const char* scrot[]   = {"scr",            0};
 const char* briup[]   = {"bri", "10", "+", 0};
 const char* bridown[] = {"bri", "10", "-", 0};
@@ -24,7 +24,7 @@ static struct key keys[] = {
     {Mod1Mask,           XK_Tab, win_next,   {0}},
     {Mod1Mask|ShiftMask, XK_Tab, win_prev,   {0}},
 
-    {MOD, XK_d,      run, {.com = menu}},
+    {MOD, XK_p,      run, {.com = menu}},
     {MOD, XK_w,      run, {.com = colors}},
     {MOD, XK_p,      run, {.com = scrot}},
     {MOD, XK_Return, run, {.com = term}},
