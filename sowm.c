@@ -184,7 +184,7 @@ void win_fs(const Arg arg) {
 
     } else {
         XMoveResizeWindow(d, cur->w, cur->wx, cur->wy, cur->ww, cur->wh);
-        title_del(cur);
+        title_add(cur);
     }
 
     win_round_corners(cur->w, cur->f ? 0 : ROUND_CORNERS);
@@ -212,12 +212,13 @@ void win_round_corners(Window w, int rad) {
     XSetForeground(d, shape_gc, 0);
     XFillRectangle(d, mask, shape_gc, 0, 0, ww, wh);
     XSetForeground(d, shape_gc, 1);
-    XFillArc(d, mask, shape_gc, 0, 0, dia, dia, 0, 23040);
-    XFillArc(d, mask, shape_gc, ww-dia-1, 0, dia, dia, 0, 23040);
+    // XFillArc(d, mask, shape_gc, 0, 0, dia, dia, 0, 23040);
+    // XFillArc(d, mask, shape_gc, ww-dia-1, 0, dia, dia, 0, 23040);
     XFillArc(d, mask, shape_gc, 0, wh-dia-1, dia, dia, 0, 23040);
     XFillArc(d, mask, shape_gc, ww-dia-1, wh-dia-1, dia, dia, 0, 23040);
     XFillRectangle(d, mask, shape_gc, rad, 0, ww-dia, wh);
     XFillRectangle(d, mask, shape_gc, 0, rad, ww, wh-dia);
+    XFillRectangle(d, mask, shape_gc, 0, 0, ww, rad);
     XShapeCombineMask(d, w, ShapeBounding, 0, 0, mask, ShapeSet);
     XFreePixmap(d, mask);
     XFreeGC(d, shape_gc);
