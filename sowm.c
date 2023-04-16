@@ -182,6 +182,7 @@ void win_fs(const Arg arg) {
         win_size(cur->w, &cur->wx, &cur->wy, &cur->ww, &cur->wh);
         XMoveResizeWindow(d, cur->w, 0, 0, sw, sh);
         XRaiseWindow(d, cur->w);
+        XRaiseWindow(d, cur->t);
         title_del(cur);
 
     } else {
