@@ -46,7 +46,7 @@ void title_add(client *c) {
     if (!strcmp(cl.res_name, "no-title")) return;
 
     win_size(c->w, &wx, &wy, &ww, &wh);
-    c->t = XCreateSimpleWindow(d, root, wx, wy - TH, ww, TH, 0, TC, TC);
+    c->t = XCreateSimpleWindow(d, root, wx, wy - TH, ww, TH, 0, TC, 0x00030808);
     XMapWindow(d, c->t);
 }
 
