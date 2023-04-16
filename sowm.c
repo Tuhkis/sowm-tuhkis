@@ -4,6 +4,7 @@
 #include <X11/XF86keysym.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#include <X11/extensions/shape.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
@@ -32,6 +33,27 @@ static void (*events[LASTEvent])(XEvent *e) = {
 
 #include "config.h"
 
+void title_add(client *c) {
+    if (c->t) return;
+
+    XClassHint cl;
+    XGetClassHint(d, c->w, &cl);
+
+    if (!strcmp(cl.res_name, "no-title")) return;
+
+    win_size(c->w, &wx, &wy, &ww, &wh);
+    c->t = XCreateSimpleWindow(d, root, wx, wy - TH, ww, TH, 0, TC, TC);
+    XMapWindow(d, c->t);
+}
+
+void title_del(client *c) {
+    if (!c->t) return;
+
+    XUnmapWindow(d, c->t);
+    XDestroyWindow(d, c->t);
+    c->t = 0;
+}
+
 void win_focus(client *c) {
     cur = c;
     XSetInputFocus(d, cur->w, RevertToParent, CurrentTime);
@@ -52,6 +74,11 @@ void notify_enter(XEvent *e) {
 void notify_motion(XEvent *e) {
     if (!mouse.subwindow || cur->f) return;
 
+    if (mouse.subwindow == cur->t) {
+        mouse.subwindow = cur->w;
+        win_size(cur->w, &wx, &wy, &ww, &wh);
+    }
+
     while(XCheckTypedEvent(d, MotionNotify, e));
 
     int xd = e->xbutton.x_root - mouse.x_root;
@@ -62,6 +89,9 @@ void notify_motion(XEvent *e) {
         wy + (mouse.button == 1 ? yd : 0),
         MAX(1, ww + (mouse.button == 3 ? xd : 0)),
         MAX(1, wh + (mouse.button == 3 ? yd : 0)));
+
+    if (mouse.button == 3)
+        win_round_corners(mouse.subwindow, ROUND_CORNERS);
 }
 
 void key_press(XEvent *e) {
@@ -118,6 +148,7 @@ void win_del(Window w) {
     if (x->next)      x->next->prev = x->prev;
     if (x->prev)      x->prev->next = x->next;
 
+    title_del(x);
     free(x);
     ws_save(ws);
 }
@@ -131,6 +162,8 @@ void win_center(const Arg arg) {
 
     win_size(cur->w, &(int){0}, &(int){0}, &ww, &wh);
     XMoveWindow(d, cur->w, (sw - ww) / 2, (sh - wh) / 2);
+
+    if (cur->t) XMoveWindow(d, cur->t, (sw - ww) / 2, (sh - wh - TH * 2) / 2);
 }
 
 void win_fs(const Arg arg) {
@@ -143,6 +176,41 @@ void win_fs(const Arg arg) {
     } else {
         XMoveResizeWindow(d, cur->w, cur->wx, cur->wy, cur->ww, cur->wh);
     }
+
+    win_round_corners(cur->w, cur->f ? 0 : ROUND_CORNERS);
+}
+
+void win_round_corners(Window w, int rad) {
+    unsigned int ww, wh, dia = 2 * rad;
+
+    win_size(w, &(int){1}, &(int){1}, &ww, &wh);
+
+    if (ww < dia || wh < dia) return;
+
+    Pixmap mask = XCreatePixmap(d, w, ww, wh, 1);
+
+    if (!mask) return;
+
+    XGCValues xgcv;
+    GC shape_gc = XCreateGC(d, mask, 0, &xgcv);
+
+    if (!shape_gc) {
+        XFreePixmap(d, mask);
+        return;
+    }
+
+    XSetForeground(d, shape_gc, 0);
+    XFillRectangle(d, mask, shape_gc, 0, 0, ww, wh);
+    XSetForeground(d, shape_gc, 1);
+    XFillArc(d, mask, shape_gc, 0, 0, dia, dia, 0, 23040);
+    XFillArc(d, mask, shape_gc, ww-dia-1, 0, dia, dia, 0, 23040);
+    XFillArc(d, mask, shape_gc, 0, wh-dia-1, dia, dia, 0, 23040);
+    XFillArc(d, mask, shape_gc, ww-dia-1, wh-dia-1, dia, dia, 0, 23040);
+    XFillRectangle(d, mask, shape_gc, rad, 0, ww-dia, wh);
+    XFillRectangle(d, mask, shape_gc, 0, rad, ww, wh-dia);
+    XShapeCombineMask(d, w, ShapeBounding, 0, 0, mask, ShapeSet);
+    XFreePixmap(d, mask);
+    XFreeGC(d, shape_gc);
 }
 
 void win_to_ws(const Arg arg) {
@@ -157,6 +225,7 @@ void win_to_ws(const Arg arg) {
     ws_sel(tmp);
     win_del(cur->w);
     XUnmapWindow(d, cur->w);
+    title_del(cur);
     ws_save(tmp);
 
     if (list) win_focus(list);
@@ -166,6 +235,10 @@ void win_prev(const Arg arg) {
     if (!cur) return;
 
     XRaiseWindow(d, cur->prev->w);
+
+    if (cur->prev->t)
+        XRaiseWindow(d, cur->prev->t);
+
     win_focus(cur->prev);
 }
 
@@ -173,6 +246,10 @@ void win_next(const Arg arg) {
     if (!cur) return;
 
     XRaiseWindow(d, cur->next->w);
+
+    if (cur->next->t)
+        XRaiseWindow(d, cur->next->t);
+
     win_focus(cur->next);
 }
 
@@ -184,11 +261,17 @@ void ws_go(const Arg arg) {
     ws_save(ws);
     ws_sel(arg.i);
 
-    for win XMapWindow(d, c->w);
+    for win {
+        XMapWindow(d, c->w);
+        title_add(c);
+    }
 
     ws_sel(tmp);
 
-    for win XUnmapWindow(d, c->w);
+    for win {
+        XUnmapWindow(d, c->w);
+        title_del(c);
+    }
 
     ws_sel(arg.i);
 
@@ -206,6 +289,8 @@ void configure_request(XEvent *e) {
         .sibling    = ev->above,
         .stack_mode = ev->detail
     });
+
+    win_round_corners(ev->window, ROUND_CORNERS);
 }
 
 void map_request(XEvent *e) {
@@ -218,6 +303,7 @@ void map_request(XEvent *e) {
 
     if (wx + wy == 0) win_center((Arg){0});
 
+    win_round_corners(w, ROUND_CORNERS);
     XMapWindow(d, w);
     win_focus(list->prev);
 }
