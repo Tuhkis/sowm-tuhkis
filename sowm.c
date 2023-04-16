@@ -1,6 +1,7 @@
 // sowm - An itsy bitsy floating window manager.
 
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/XF86keysym.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
@@ -8,6 +9,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "sowm.h"
 
@@ -89,6 +91,11 @@ void notify_motion(XEvent *e) {
         wy + (mouse.button == 1 ? yd : 0),
         MAX(1, ww + (mouse.button == 3 ? xd : 0)),
         MAX(1, wh + (mouse.button == 3 ? yd : 0)));
+
+    if (cur->t) XMoveResizeWindow(d, cur->t,
+        wx + (mouse.button == 1 ? xd : 0),
+        wy + (mouse.button == 1 ? yd : 0) - TH,
+        MAX(1, ww + (mouse.button == 3 ? xd : 0)), TH);
 
     if (mouse.button == 3)
         win_round_corners(mouse.subwindow, ROUND_CORNERS);
@@ -172,9 +179,12 @@ void win_fs(const Arg arg) {
     if ((cur->f = cur->f ? 0 : 1)) {
         win_size(cur->w, &cur->wx, &cur->wy, &cur->ww, &cur->wh);
         XMoveResizeWindow(d, cur->w, 0, 0, sw, sh);
+        XRaiseWindow(d, cur->w);
+        title_del(cur);
 
     } else {
         XMoveResizeWindow(d, cur->w, cur->wx, cur->wy, cur->ww, cur->wh);
+        title_del(cur);
     }
 
     win_round_corners(cur->w, cur->f ? 0 : ROUND_CORNERS);
@@ -306,6 +316,7 @@ void map_request(XEvent *e) {
     win_round_corners(w, ROUND_CORNERS);
     XMapWindow(d, w);
     win_focus(list->prev);
+    title_add(cur);
 }
 
 void mapping_notify(XEvent *e) {
